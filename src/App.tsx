@@ -8,6 +8,7 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import About from "./pages/About";
+import CulturalTreasures from "./pages/CulturalTreasures";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Landing />} />
+            <Route path="cultural-treasures" element={<CulturalTreasures />} />
             <Route path="about" element={<About />} />
             <Route path="login" element={<Login />} />
             <Route path="signup" element={<Signup />} />

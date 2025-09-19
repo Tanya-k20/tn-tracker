@@ -32,6 +32,14 @@ const Navigation = () => {
               Home
             </Link>
             <Link
+              to="/cultural-treasures"
+              className={`text-sm font-medium transition-colors hover:text-primary ${
+                isActive('/cultural-treasures') ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            >
+              Cultural Treasures
+            </Link>
+            <Link
               to="/about"
               className={`text-sm font-medium transition-colors hover:text-primary ${
                 isActive('/about') ? 'text-primary' : 'text-muted-foreground'
@@ -74,6 +82,15 @@ const Navigation = () => {
                 onClick={() => setIsMenuOpen(false)}
               >
                 Home
+              </Link>
+              <Link
+                to="/cultural-treasures"
+                className={`text-sm font-medium transition-colors hover:text-primary px-3 py-2 ${
+                  isActive('/cultural-treasures') ? 'text-primary bg-muted rounded-md' : 'text-muted-foreground'
+                }`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Cultural Treasures
               </Link>
               <Link
                 to="/about"
