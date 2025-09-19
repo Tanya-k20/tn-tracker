@@ -9,17 +9,24 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg transition-all duration-200",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-md hover:shadow-lg transition-all duration-200",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // Tamil Nadu Cultural Variants
+        temple: "bg-gradient-to-r from-primary to-primary-glow text-primary-foreground hover:shadow-temple hover:scale-105 transition-all duration-300",
+        ocean: "bg-gradient-to-r from-secondary to-secondary/80 text-secondary-foreground hover:shadow-lg hover:scale-105 transition-all duration-300",
+        heritage: "bg-gradient-to-r from-accent to-coral text-accent-foreground hover:shadow-glow hover:scale-105 transition-all duration-300",
+        bronze: "bg-bronze text-white hover:bg-bronze/90 shadow-md hover:shadow-lg transition-all duration-200",
+        terracotta: "bg-terracotta text-white hover:bg-terracotta/90 shadow-md hover:shadow-lg transition-all duration-200",
       },
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-9 rounded-md px-3",
         lg: "h-11 rounded-md px-8",
+        xl: "h-14 rounded-lg px-10 text-base font-semibold",
         icon: "h-10 w-10",
       },
     },
