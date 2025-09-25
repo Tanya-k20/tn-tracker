@@ -22,6 +22,13 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Landing />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="projects" element={<Projects />} />
+            <Route path="projects/:id" element={<ProjectDetail />} />
+            <Route path="tasks" element={<Tasks />} />
+            <Route path="tasks/:id" element={<TaskDetail />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="reports" element={<Reports />} />
             <Route path="cultural-treasures" element={<CulturalTreasures />} />
             <Route path="about" element={<About />} />
             <Route path="login" element={<Login />} />
