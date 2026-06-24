@@ -10,6 +10,13 @@ import Signup from "./pages/Signup";
 import About from "./pages/About";
 import CulturalTreasures from "./pages/CulturalTreasures";
 import NotFound from "./pages/NotFound";
+import Dashboard from "./pages/Dashboard";
+import Projects from "./pages/Projects";
+import ProjectDetail from "./pages/ProjectDetail";
+import Tasks from "./pages/Tasks";
+import TaskDetail from "./pages/TaskDetail";
+import UserManagement from "./pages/UserManagement";
+import Reports from "./pages/Reports";
 
 const queryClient = new QueryClient();
 
