@@ -1,367 +1,147 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Edit, Trash2, MessageSquare, Clock, CheckSquare2, User } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { Link } from "react-router-dom";
+import { Search, Plus, Edit, Trash2, Eye } from "lucide-react";
+import { LoadingState, ErrorState, EmptyState } from "@/components/DataState";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import TaskFormDialog, { TaskRecord, TaskValues } from "@/components/TaskFormDialog";
+import { StatusBadge } from "@/components/StatusBadge";
+import { useTasks, useTaskMutations } from "@/hooks/useTasks";
+import { useProjects } from "@/hooks/useProjects";
+import { useProfiles } from "@/hooks/useProfiles";
+import { useAuth } from "@/hooks/useAuth";
 
 const Tasks = () => {
-  const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const { user } = useAuth();
+  const { data, isLoading, isError, refetch } = useTasks();
+  const { data: projects } = useProjects();
+  const { data: profiles } = useProfiles();
+  const { createTask, updateTask, deleteTask } = useTaskMutations();
 
-  // Sample data
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      title: "Design homepage layout for Tourism Portal",
-      description: "Create responsive homepage with hero section and district cards",
-      status: "completed",
-      priority: "high",
-      project: "Tamil Nadu Tourism Portal",
-      assignee: "Priya Sharma",
-      dueDate: "2024-01-15",
-      createdDate: "2024-01-01",
-      completedDate: "2024-01-14",
-      commentsCount: 5
-    },
-    {
-      id: 2,
-      title: "Implement user authentication system",
-      description: "Set up JWT-based authentication with login/signup forms",
-      status: "completed",
-      priority: "high",
-      project: "Tamil Nadu Tourism Portal",
-      assignee: "Raj Patel",
-      dueDate: "2024-01-20",
-      createdDate: "2024-01-05",
-      completedDate: "2024-01-18",
-      commentsCount: 3
-    },
-    {
-      id: 3,
-      title: "Create district comparison feature",
-      description: "Build interactive comparison tool for district statistics",
-      status: "in-progress",
-      priority: "medium",
-      project: "District Comparison Tool",
-      assignee: "Meera Rajan",
-      dueDate: "2024-02-01",
-      createdDate: "2024-01-10",
-      commentsCount: 8
-    },
-    {
-      id: 4,
-      title: "Integrate payment gateway",
-      description: "Add Razorpay integration for tourism bookings",
-      status: "pending",
-      priority: "high",
-      project: "Tamil Nadu Tourism Portal",
-      assignee: "Arjun Kumar",
-      dueDate: "2024-02-15",
-      createdDate: "2024-01-12",
-      commentsCount: 2
-    },
-    {
-      id: 5,
-      title: "Document heritage sites data",
-      description: "Collect and organize data for UNESCO World Heritage Sites",
-      status: "in-progress",
-      priority: "medium",
-      project: "Heritage Sites Documentation",
-      assignee: "Priya Sharma",
-      dueDate: "2024-03-01",
-      createdDate: "2024-02-01",
-      commentsCount: 12
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<TaskRecord | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const projectMap = useMemo(
+    () => Object.fromEntries((projects ?? []).map((p) => [p.id, p.name])),
+    [projects],
+  );
+  const profileMap = useMemo(
+    () => Object.fromEntries((profiles ?? []).map((p) => [p.id, p.full_name || p.email])),
+    [profiles],
+  );
+
+  const filtered = useMemo(
+    () =>
+      (data ?? []).filter((t) => {
+        const matchesSearch = t.title.toLowerCase().includes(search.toLowerCase());
+        const matchesStatus = statusFilter === "all" || t.status === statusFilter;
+        return matchesSearch && matchesStatus;
+      }),
+    [data, search, statusFilter],
+  );
+
+  const handleSubmit = (values: TaskValues) => {
+    if (editing) {
+      updateTask.mutate({ id: editing.id, values }, { onSuccess: () => { setFormOpen(false); setEditing(null); } });
+    } else {
+      createTask.mutate({ values, userId: user!.id }, { onSuccess: () => setFormOpen(false) });
     }
-  ]);
-
-  const handleDeleteTask = (id: number) => {
-    setTasks(tasks.filter(task => task.id !== id));
-    toast({
-      title: "Task deleted",
-      description: "Task has been successfully removed.",
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'default';
-      case 'in-progress': return 'secondary';
-      case 'pending': return 'outline';
-      case 'blocked': return 'destructive';
-      default: return 'outline';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'destructive';
-      case 'medium': return 'secondary';
-      case 'low': return 'outline';
-      default: return 'outline';
-    }
-  };
-
-  const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.project.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === "all" || task.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
-
-  const taskStats = {
-    total: tasks.length,
-    completed: tasks.filter(t => t.status === 'completed').length,
-    inProgress: tasks.filter(t => t.status === 'in-progress').length,
-    pending: tasks.filter(t => t.status === 'pending').length,
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Tasks</h1>
-        <p className="text-muted-foreground">Manage and track project tasks across Tamil Nadu initiatives.</p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-1">Tasks</h1>
+          <p className="text-muted-foreground">Plan, assign and complete work across your projects.</p>
+        </div>
+        <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+          <Plus className="mr-2 h-4 w-4" /> New Task
+        </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <CheckSquare2 className="h-8 w-8 text-muted-foreground" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Total Tasks</p>
-                <p className="text-2xl font-bold">{taskStats.total}</p>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <CardTitle>All tasks {data ? `(${data.length})` : ""}</CardTitle>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search tasks..."
+                  className="pl-10 w-full sm:w-64"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
               </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-popover">
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="todo">To do</SelectItem>
+                  <SelectItem value="in_progress">In progress</SelectItem>
+                  <SelectItem value="review">In review</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                <div className="h-4 w-4 rounded-full bg-green-500" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Completed</p>
-                <p className="text-2xl font-bold">{taskStats.completed}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                <div className="h-4 w-4 rounded-full bg-blue-500" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">In Progress</p>
-                <p className="text-2xl font-bold">{taskStats.inProgress}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="h-8 w-8 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center">
-                <div className="h-4 w-4 rounded-full bg-yellow-500" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Pending</p>
-                <p className="text-2xl font-bold">{taskStats.pending}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="list" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="list">Task List</TabsTrigger>
-          <TabsTrigger value="board">Kanban Board</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="list" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <CardTitle>All Tasks</CardTitle>
-                <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search tasks..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 w-full md:w-64"
-                    />
-                  </div>
-                  <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger className="w-full md:w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button className="flex items-center gap-2">
-                        <Plus className="h-4 w-4" />
-                        New Task
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
-                      <DialogHeader>
-                        <DialogTitle>Create New Task</DialogTitle>
-                      </DialogHeader>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2 space-y-2">
-                          <Label htmlFor="taskTitle">Task Title</Label>
-                          <Input id="taskTitle" placeholder="Enter task title" />
-                        </div>
-                        <div className="col-span-2 space-y-2">
-                          <Label htmlFor="taskDescription">Description</Label>
-                          <Textarea id="taskDescription" placeholder="Enter task description" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="project">Project</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select project" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="tourism">Tamil Nadu Tourism Portal</SelectItem>
-                              <SelectItem value="heritage">Heritage Sites Documentation</SelectItem>
-                              <SelectItem value="comparison">District Comparison Tool</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="assignee">Assignee</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select assignee" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="arjun">Arjun Kumar</SelectItem>
-                              <SelectItem value="priya">Priya Sharma</SelectItem>
-                              <SelectItem value="raj">Raj Patel</SelectItem>
-                              <SelectItem value="meera">Meera Rajan</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="priority">Priority</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select priority" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="high">High</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="low">Low</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="dueDate">Due Date</Label>
-                          <Input id="dueDate" type="date" />
-                        </div>
-                        <div className="col-span-2">
-                          <Button className="w-full">Create Task</Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <LoadingState />
+          ) : isError ? (
+            <ErrorState onRetry={() => refetch()} />
+          ) : !filtered.length ? (
+            <EmptyState
+              title={data?.length ? "No matching tasks" : "No tasks yet"}
+              description={data?.length ? "Try a different search or filter." : "Create your first task to get started."}
+              action={!data?.length ? <Button onClick={() => setFormOpen(true)}>Create task</Button> : undefined}
+            />
+          ) : (
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Task</TableHead>
+                    <TableHead>Title</TableHead>
                     <TableHead>Project</TableHead>
                     <TableHead>Assignee</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Priority</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Comments</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead>Due</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTasks.map((task) => (
+                  {filtered.map((task) => (
                     <TableRow key={task.id}>
+                      <TableCell className="font-medium">{task.title}</TableCell>
+                      <TableCell>{task.project_id ? projectMap[task.project_id] ?? "—" : "—"}</TableCell>
+                      <TableCell>{task.assignee_id ? profileMap[task.assignee_id] ?? "—" : "Unassigned"}</TableCell>
+                      <TableCell><StatusBadge value={task.status} /></TableCell>
+                      <TableCell><StatusBadge value={task.priority} /></TableCell>
+                      <TableCell>{task.due_date ? new Date(task.due_date).toLocaleDateString() : "—"}</TableCell>
                       <TableCell>
-                        <div>
-                          <Link 
-                            to={`/tasks/${task.id}`}
-                            className="font-medium hover:text-primary transition-colors"
-                          >
-                            {task.title}
-                          </Link>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {task.description.substring(0, 60)}...
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{task.project}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          {task.assignee}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusColor(task.status)}>{task.status}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getPriorityColor(task.priority)}>{task.priority}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          {task.dueDate}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                          {task.commentsCount}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm">
-                            <Edit className="h-4 w-4" />
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" asChild aria-label="View task">
+                            <Link to={`/tasks/${task.id}`}><Eye className="h-4 w-4" /></Link>
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteTask(task.id)}
+                            aria-label="Edit task"
+                            onClick={() => { setEditing(task); setFormOpen(true); }}
                           >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" aria-label="Delete task" onClick={() => setDeleteId(task.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -370,92 +150,29 @@ const Tasks = () => {
                   ))}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        <TabsContent value="board" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Pending Column */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Pending</span>
-                  <Badge variant="outline">{tasks.filter(t => t.status === 'pending').length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {tasks.filter(t => t.status === 'pending').map((task) => (
-                  <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <h4 className="font-medium mb-2">{task.title}</h4>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        {task.description.substring(0, 80)}...
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <Badge variant={getPriorityColor(task.priority)}>{task.priority}</Badge>
-                        <span className="text-xs text-muted-foreground">{task.dueDate}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </CardContent>
-            </Card>
+      <TaskFormDialog
+        open={formOpen}
+        onOpenChange={(open) => { setFormOpen(open); if (!open) setEditing(null); }}
+        task={editing}
+        projects={(projects ?? []).map((p) => ({ id: p.id, label: p.name }))}
+        members={(profiles ?? []).map((p) => ({ id: p.id, label: p.full_name || p.email }))}
+        submitting={createTask.isPending || updateTask.isPending}
+        onSubmit={handleSubmit}
+      />
 
-            {/* In Progress Column */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>In Progress</span>
-                  <Badge variant="outline">{tasks.filter(t => t.status === 'in-progress').length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {tasks.filter(t => t.status === 'in-progress').map((task) => (
-                  <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow border-blue-200">
-                    <CardContent className="p-4">
-                      <h4 className="font-medium mb-2">{task.title}</h4>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        {task.description.substring(0, 80)}...
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <Badge variant={getPriorityColor(task.priority)}>{task.priority}</Badge>
-                        <span className="text-xs text-muted-foreground">{task.dueDate}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Completed Column */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Completed</span>
-                  <Badge variant="outline">{tasks.filter(t => t.status === 'completed').length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {tasks.filter(t => t.status === 'completed').map((task) => (
-                  <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow border-green-200">
-                    <CardContent className="p-4">
-                      <h4 className="font-medium mb-2">{task.title}</h4>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        {task.description.substring(0, 80)}...
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <Badge variant={getPriorityColor(task.priority)}>{task.priority}</Badge>
-                        <span className="text-xs text-muted-foreground">{task.completedDate}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Delete task?"
+        description="This task will be permanently removed."
+        loading={deleteTask.isPending}
+        onConfirm={() => deleteId && deleteTask.mutate(deleteId, { onSuccess: () => setDeleteId(null) })}
+      />
     </div>
   );
 };
