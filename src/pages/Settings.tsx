@@ -90,7 +90,13 @@ const Settings = () => {
   });
 
   const savePreference = useMutation({
-    mutationFn: async (patch: Record<string, string | boolean>) => {
+    mutationFn: async (patch: {
+      theme?: string;
+      language?: string;
+      email_notifications?: boolean;
+      push_notifications?: boolean;
+      weekly_digest?: boolean;
+    }) => {
       const { error } = await supabase.from("user_settings").update(patch).eq("user_id", user!.id);
       if (error) throw error;
     },
@@ -223,7 +229,7 @@ const Settings = () => {
                       id={row.key}
                       checked={row.value}
                       disabled={savePreference.isPending}
-                      onCheckedChange={(checked) => savePreference.mutate({ [row.key]: checked })}
+                      onCheckedChange={(checked) => savePreference.mutate({ [row.key]: checked } as { email_notifications?: boolean })}
                     />
                   </div>
                 ))}
